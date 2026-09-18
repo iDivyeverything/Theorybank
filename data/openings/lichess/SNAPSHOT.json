@@ -1,0 +1,36 @@
+{
+  "source": "https://github.com/lichess-org/chess-openings",
+  "commit": "4b8622759e7ae6f93f011cc6c83a3823401ab45e",
+  "retrieved": "2026-09-17",
+  "scope": "Complete named-opening catalog at this commit; not all theoretical moves or the Lichess game archive.",
+  "files": {
+    "a.tsv": {
+      "bytes": 66338,
+      "sha256": "41722fa3d44f294357326fe2ca1b956d9e56490b30efcfa68db61114c9df7e10"
+    },
+    "b.tsv": {
+      "bytes": 77372,
+      "sha256": "310f0997d5a26ac6c9abfabac028e47e78f24356a6ba322cfffbf8f5a3f88d25"
+    },
+    "c.tsv": {
+      "bytes": 132306,
+      "sha256": "b2e64f32e42e6418b327d03a55af65f3a18e762f7cbc0efffc7e9d1ed3aa7343"
+    },
+    "d.tsv": {
+      "bytes": 69199,
+      "sha256": "58cad40b886bd499717eabcce281d4bfcf00eeadbdc00552f42042cf4aac50d2"
+    },
+    "e.tsv": {
+      "bytes": 42837,
+      "sha256": "f1f8494f488f660e284f23527d5acfbeccdbbc3acc76e74f05d125f39d2f8a74"
+    },
+    "COPYING.txt": {
+      "bytes": 7048,
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+    },
+    "UPSTREAM-README.md": {
+      "bytes": 2661,
+      "sha256": "c0bedd93a117f318a3bd087a3af640652f4369ca461429d4dfbeee4614dc5eae"
+    }
+  }
+}
