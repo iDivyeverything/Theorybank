@@ -2,7 +2,7 @@
 
 Essentials are the quiet entry, independent board and rules, local opening source, navigable notation, variations, and replaceable environments. Grow these foundations without adding interface clutter.
 
-Implemented scene foundation: moonlit glass entrance, gradual island reveal, a shared board-center/framing contract, environment-owned table appearance, mineral-textured stone pieces, per-piece weight-tuned motion/contact synthesis, and adjustable moonlight/daylight brightness. A true timed day/night simulation, physics engine, and scrolling island exploration are not included.
+Implemented scene foundation: moonlit glass entrance, gradual island reveal, a stationary plank-and-trestle table matching the canoe, an actual camera approach with foreground parallax, a shared board-center/framing contract, environment-owned table appearance, mineral-textured stone pieces, per-piece weight-tuned motion/contact synthesis, and adjustable moonlight/daylight brightness. A true timed day/night simulation, physics engine, fully modeled island, and scrolling island exploration are not included.
 
 ## Saved lines and repertoire (next learning feature; not implemented)
 

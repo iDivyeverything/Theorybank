@@ -1,6 +1,6 @@
 # Theorybank
 
-A quiet chess study space: a living tropical shore, a weathered teak table and an independent 3D board with smooth mineral-textured stone pieces. The entrance is almost black, with a moonlit Liquid Glass **Study** panel. Study reveals the island gradually, then approaches the board. Returning to the beach retains the revealed scene.
+A quiet chess study space: an open tropical shore, a weathered timber table matching the wooden canoe, and an independent 3D board with smooth mineral-textured stone pieces. The entrance is almost black, with a moonlit Liquid Glass **Study** panel. Study reveals the island, then moves the camera toward the fixed table over 3.4 seconds. Returning to the beach retains the revealed scene.
 
 ## Using the first version
 
@@ -24,11 +24,13 @@ The UI imports only `data/openings/starter-lines.json`, a 22-line sample. `node 
 - `lib/chess/study.ts`: headless legal rules and immutable branching study trees. Replaying SAN preserves repetition history. Nodes store FEN, move notation, origin/destination, parent/children and depth in plies.
 - `lib/chess/openings.ts`: square-to-line lookup and local implementation of the `OpeningBookProvider` interface. `depthLimitPlies` is measured from the initial position. Opening names, theoretical claims, frequency and engine scores remain separate concepts.
 - `components/chess/ChessBoard.tsx`: reusable input and accessibility boundary. Position, highlights, piece focus, camera framing and lighting arrive as props; the component owns no game rules or opening data.
-- `components/chess/board-renderer.ts`: Three.js board, matching table, physical piece materials, camera transitions and legal-move highlights. It has no beach or Lichess dependency. A software 3D renderer and simple-board fallback cover missing GPU support.
+- `components/chess/board-renderer.ts`: Three.js board, physical piece materials, camera transitions and legal-move highlights. The canvas fills a fixed viewport; camera position, look target and framing change together while the table and board remain at the world origin. A software 3D renderer and simple-board fallback cover missing GPU support.
+- `components/chess/coastal-table.ts`: separate weathered planks, trestles, splayed feet, timber pegs and contact shadow. Its materials share the canoe's warm wood palette.
 - `lib/chess/presentation.ts`: shared board center, camera framing bounds and per-piece feel. Every environment's table sits below this same board anchor; the study camera fits the board and tallest pieces, not the table. Piece mass values are art-directed estimates, not measured weights or a physical simulation. They drive a slower, lower lift and deeper landing for larger pieces, with modest timing/pitch variation. Software fallback moves pieces immediately to keep interaction responsive.
 - `lib/environments/registry.ts`: scene definitions, lighting and lightweight event scheduling. Add future landscapes/fantasy scenes here without rebuilding chess.
-- `components/environments/Environment.tsx`: local beach artwork with continuous spatially masked water and foliage motion. This is an animated image, not a live camera or a video stream. A software fallback preserves subtle motion without WebGL.
-- `components/environments/AmbientEvent.tsx`: one small sailboat image drifts near the horizon after 55 seconds of active scene time, for 65 seconds, on a four-minute cycle. Hidden tabs and paused scenes stop its clock. It never takes pointer input.
+- `components/environments/scene-backdrop.ts`: lightweight photographed scenery projected onto a stationary sand floor and distant plane. The camera produces foreground parallax. This is a photo-backed scene, not a fully modeled island or live video. Water and foliage use subtle local shader animation. The same renderer draws the board, scenery and event.
+- `components/environments/Environment.tsx`: scenery fallback for browsers without WebGL; a matching image approach accompanies the software-rendered camera. The fallback has less spatial detail than the WebGL scene.
+- `components/environments/AmbientEvent.tsx`: software version of the small wooden boat event. Both renderers share the registry schedule: after 55 seconds of active scene time, a 65-second drift on a four-minute cycle. Hidden tabs and paused scenes stop its clock. The boat never takes pointer input.
 - `components/environments/useSurfAudio.ts`: locally synthesized surf, wind, and layered stone-on-wood impacts. Contact sound is triggered by the renderer when a played move lands, not by clicking notation or filtering pieces. A single mute control governs all sounds. Hidden tabs are muted. No remote sound assets or paid audio services are used.
 - `app/page.tsx`: composition and ambient → choose → study state transitions. Existing studies survive switching lines during the visit. Page-scoped WebMCP tools use the same legal move and navigation operations as the UI.
 
@@ -38,7 +40,7 @@ See `ROADMAP.md` for saved-line/repertoire and pawn-structure lesson requirement
 
 ## Development and portability
 
-React, Three.js and chess.js, using the Sites Vinext starter. Node 22.13+ and the declared pnpm version are required. Preserve `pnpm-lock.yaml`. Use `pnpm dev` and `pnpm build`; managed Sites environments use their supervised preview and build helpers. No database or paid chess API is required.
+React, Three.js and chess.js, using the Sites Vinext starter. Node 22.13+ and the declared pnpm version are required. Preserve `pnpm-lock.yaml`. Use `pnpm dev` and `pnpm build`; managed Sites environments use their supervised preview and build helpers. Shell entry points explicitly invoke Bash so a GitHub web upload or ZIP checkout need not preserve executable bits. No database or paid chess API is required.
 
 The website is currently maintained and published with ChatGPT Sites. `.openai/hosting.json` contains its Site identity, not credentials. GitHub is a separate source-control destination. The intended user repository is `iDivyeverything/Theorybank`; publishing with Sites does not itself upload anything to GitHub. A GitHub transfer must preserve any existing repository content and history, preferably through a new branch for review. No credentials should ever be committed.
 
@@ -46,4 +48,4 @@ The chess, environment and data modules are browser-side and portable. A move to
 
 ## Assets and licenses
 
-Beach and sailboat: original generated artwork, served locally. Board/pieces/table: local Three.js geometry. Opening catalog: CC0, with upstream license and provenance retained. Icons: Lucide. Chess rules: chess.js. Other dependency licenses remain their respective owners'.
+Beach and boats: original generated artwork, served locally. Board/pieces/table: local Three.js geometry. Opening catalog: CC0, with upstream license and provenance retained. Icons: Lucide. Chess rules: chess.js. Other dependency licenses remain their respective owners'.
