@@ -21,10 +21,10 @@ export function AmbientEvent({environment,paused,active=true}:{environment:Study
       if(progress<0||progress>1){image.style.opacity='0';return;}
       const width=window.innerWidth,height=window.innerHeight,aspect=width/height;
       const imageWidth=Math.max(width,height*environment.imageAspect),imageHeight=imageWidth/environment.imageAspect;
-      const focalX=aspect<1?.38:.5;
-      const x=(.60+progress*.26-focalX)*imageWidth+width/2;
-      const waterline=(.455-.5)*imageHeight+height/2;
-      image.style.width=`${Math.max(20,imageWidth*.028)}px`;
+      const focalX=aspect<1?.42:.5;
+      const x=(.64+progress*.27-focalX)*imageWidth+width/2;
+      const waterline=(.412-.5)*imageHeight+height/2;
+      image.style.width=`${Math.max(26,imageWidth*.04)}px`;
       image.style.left=`${x}px`;image.style.top=`${waterline}px`;
       image.style.transform=`translate(-50%,-100%) translateY(${Math.sin(progress*Math.PI*12)*.45}px)`;
       image.style.opacity=String(Math.min(progress*12,(1-progress)*12,1)*.68);

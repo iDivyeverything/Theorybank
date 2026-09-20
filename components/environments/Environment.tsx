@@ -36,11 +36,11 @@ export function Environment({ environment, paused }: { environment: StudyEnviron
           void main(){
             vec2 uv=vUv;
             if(aspect>imageAspect) uv.y=(uv.y-.5)*imageAspect/aspect+.5;
-            else uv.x=(uv.x-.5)*aspect/imageAspect+(aspect<1.?.38:.5);
+            else uv.x=(uv.x-.5)*aspect/imageAspect+(aspect<1.?.42:.5);
             float y=1.-uv.y;
-            float shore=.59+.235*uv.x;
-            float water=smoothstep(.445,.472,y)*(1.-smoothstep(shore-.024,shore+.012,y))*smoothstep(.30,.43,uv.x);
-            float depth=smoothstep(.45,.80,y);
+            float shore=.52+.13*uv.x;
+            float water=smoothstep(.372,.401,y)*(1.-smoothstep(shore-.024,shore+.012,y))*smoothstep(.39,.44,uv.x);
+            float depth=smoothstep(.37,.65,y);
             float w=sin(y*170.-time*.66+sin(uv.x*17.+time*.23)*1.5);
             uv.x+=water*(sin(y*93.+time*.42)*.0015+sin(uv.x*31.+time*.17)*.0005)*depth;
             uv.y+=water*(w*.00165+sin(y*340.-time*.43)*.00035)*depth;
@@ -85,7 +85,7 @@ export function Environment({ environment, paused }: { environment: StudyEnviron
   return <div className="environment" aria-hidden="true" style={{ backgroundImage: `url(${environment.image})` }} ref={host}>
     {software&&<svg ref={waterAnimation} className="software-environment" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <defs>
-        <clipPath id="water-region"><path d="M690 430 L1672 430 L1672 767 L1400 711 L1170 674 L960 641 L770 619 L578 585 L600 529 L665 501 Z"/></clipPath>
+        <clipPath id="water-region"><path d="M720 355 L1620 355 L1530 568 L1380 556 L1130 534 L910 512 L730 479 Z"/></clipPath>
         <clipPath id="fronds-region"><path d="M610 0H1160V175L1025 120L950 300L900 100L710 310L705 160L610 280Z M1450 0H1672V305L1585 180L1490 320L1540 115Z"/></clipPath>
         <filter id="water-ripple" x="-2%" y="-2%" width="104%" height="104%">
           <feTurbulence type="fractalNoise" baseFrequency="0.012 0.073" numOctaves="2" seed="4" result="ripple"><animate attributeName="baseFrequency" values="0.012 0.073;0.013 0.085;0.014 0.076;0.012 0.073" dur="21s" repeatCount="indefinite"/></feTurbulence>
