@@ -15,6 +15,7 @@ import { useSurfAudio } from "@/components/environments/useSurfAudio";
 import { environments } from "@/lib/environments/registry";
 import { activeLine, createStudy, gameAt, navigateTo, playMove, seedStudy, type MoveInput, type Study } from "@/lib/chess/study";
 import { STARTER_LINES, openingsForSquare, type OpeningLine } from "@/lib/chess/openings";
+import { CAMERA_TRAVEL_MS } from "@/lib/chess/presentation";
 
 const environment = environments["tropical-shore"];
 const initialStudy=createStudy();
@@ -26,6 +27,9 @@ export default function Home() {
   const [phase,setPhase]=useState<Phase>("ambient");
   const [revealed,setRevealed]=useState(false);
   const [arriving,setArriving]=useState(false);
+  const [gpuScene,setGpuScene]=useState(false);
+  const sceneRoot=useRef<HTMLElement>(null);
+  const cameraFrame=useCallback((progress:number)=>{sceneRoot.current?.style.setProperty("--camera-progress",String(progress));},[]);
   const [daylight,setDaylight]=useState(100);
   const [motion,setMotion]=useState<{id:number;pieceType:string}|undefined>();
   const motionId=useRef(0),arrivalTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -50,10 +54,13 @@ export default function Home() {
     if(!audioPreference.current){audioPreference.current=true;void surf.setEnabled(true);}
     setSelected(null);setPickerSquare(null);setBrowseAll(false);
     // Only the first entrance is a sunrise. Beach returns retain scene light.
-    if(revealed){setPhase("choose");return;}
-    setRevealed(true);
+    const firstEntrance=!revealed;setRevealed(true);
     if(window.matchMedia("(prefers-reduced-motion: reduce)").matches){setPhase("choose");return;}
-    setArriving(true);arrivalTimer.current=setTimeout(()=>{setArriving(false);setPhase("choose");},1900);
+    setArriving(true);
+    arrivalTimer.current=setTimeout(()=>{
+      setPhase("choose");
+      arrivalTimer.current=setTimeout(()=>setArriving(false),CAMERA_TRAVEL_MS+100);
+    },firstEntrance?1250:0);
   };
   const changeDaylight=(value:number)=>{setDaylight(value);try{localStorage.setItem("theorybank.scene-light.v1",String(value));}catch{}};
   useEffect(()=>{
@@ -148,13 +155,12 @@ export default function Home() {
     return()=>lifecycle.abort();
   },[updateStudy,move]);
 
-  return <main className={`theorybank phase-${phase}${picking?" has-picker":""}${!revealed?" is-unrevealed":""}${arriving?" is-arriving":""}`} aria-busy={arriving} style={{"--scene-light":.43+daylight*.0057,"--scene-saturation":.76+daylight*.0024,"--night-veil":(1-daylight/100)*.25} as CSSProperties}>
-    <Environment environment={environment} paused={paused}/>
-    <AmbientEvent environment={environment} paused={paused} active={revealed&&!arriving}/>
+  return <main ref={sceneRoot} className={`theorybank phase-${phase}${picking?" has-picker":""}${!revealed?" is-unrevealed":""}${arriving?" is-arriving":""}${gpuScene?" has-world-scene":""}`} aria-busy={arriving} style={{"--scene-light":.43+daylight*.0057,"--scene-saturation":.76+daylight*.0024,"--night-veil":(1-daylight/100)*.25} as CSSProperties}>
+    {!gpuScene&&<div className="fallback-scene"><Environment environment={environment} paused={paused}/><AmbientEvent environment={environment} paused={paused} active={revealed&&!arriving}/></div>}
     <div className="scene-shade" aria-hidden="true"/>
     {phase==="ambient"&&<><button className="study-invitation" onClick={enterStudy} disabled={arriving} aria-label="Study — reveal the island and approach the chessboard">Study</button><button className="icon-button entrance-sound" onClick={toggleSound} aria-pressed={surf.enabled} aria-label={surf.enabled?"Turn island sound off":"Turn island sound on"} title={surf.enabled?"Sound off":"Wind and waves"}>{surf.enabled?<Volume2 size={18}/>:<VolumeX size={18}/>}</button></>}
     <section className="board-stage" aria-label="Chessboard on a teak table">
-      <ChessBoard position={position} lighting={environment.boardLighting} table={environment.table} flipped={flipped} topView={topView} resetKey={resetKey} distant={phase==="ambient"} interactive={phase!=="ambient"} choosing={phase==="choose"} onSquare={onSquare} onLand={surf.playImpact}/>
+      <ChessBoard position={position} lighting={environment.boardLighting} table={environment.table} environment={environment} paused={paused} eventsActive={revealed&&!arriving} onCameraFrame={cameraFrame} onBackend={setGpuScene} flipped={flipped} topView={topView} resetKey={resetKey} distant={phase==="ambient"} interactive={phase!=="ambient"&&!arriving} choosing={phase==="choose"} onSquare={onSquare} onLand={surf.playImpact}/>
     </section>
     {phase!=="ambient"&&<>
       <header className="study-header">
