@@ -3,7 +3,10 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { SVGRenderer, SVGObject } from "three/addons/renderers/SVGRenderer.js";
-import { BOARD_FRAME, STONE_PIECE_FEEL, type TableAppearance } from "@/lib/chess/presentation";
+import { BOARD_FRAME, CAMERA_TRAVEL_MS, STONE_PIECE_FEEL, type TableAppearance } from "@/lib/chess/presentation";
+import { coastalTable } from "./coastal-table";
+import { SceneBackdrop } from "@/components/environments/scene-backdrop";
+import type { StudyEnvironment } from "@/lib/environments/registry";
 
 export type BoardPiece = { square: string; type: string; color: "w" | "b" };
 export type BoardPosition = {
@@ -94,7 +97,7 @@ function stoneTexture(){
 function woodTexture() {
   const canvas=document.createElement("canvas"); canvas.width=256; canvas.height=512;
   const context=canvas.getContext("2d")!;
-  context.fillStyle="#a17f5d"; context.fillRect(0,0,256,512);
+  context.fillStyle="#ddd6c8"; context.fillRect(0,0,256,512);
   for(let i=0;i<1600;i++) {
     const x=(Math.sin(i*12.9898)*43758.5453%1+1)%1*256;
     const v=(Math.sin(i*5.71)*12951.77%1+1)%1;
@@ -111,7 +114,7 @@ export class BoardRenderer {
   readonly software: boolean;
   private needsRender=true;
   private scene=new THREE.Scene();
-  private camera=new THREE.PerspectiveCamera(BOARD_FRAME.cameraFov,1,.1,100);
+  private camera=new THREE.PerspectiveCamera(BOARD_FRAME.cameraFov,1,.1,400);
   private controls: OrbitControls;
   private frame=0;
   private observer: ResizeObserver;
@@ -125,7 +128,12 @@ export class BoardRenderer {
   private topView=false;
   private distant=true;
   private viewInitialized=false;
-  private cameraMotion?:{from:THREE.Vector3;to:THREE.Vector3;targetFrom:THREE.Vector3;targetTo:THREE.Vector3;start:number};
+  private cameraOffset=new THREE.Vector2();
+  private cameraProgress=0;
+  private backdrop?:SceneBackdrop;
+  private scenePaused=false;
+  private eventsActive=false;
+  private cameraMotion?:{from:THREE.Vector3;to:THREE.Vector3;targetFrom:THREE.Vector3;targetTo:THREE.Vector3;offsetFrom:THREE.Vector2;offsetTo:THREE.Vector2;progressFrom:number;progressTo:number;start:number};
   private animations:{object:THREE.Group;from:THREE.Vector3;to:THREE.Vector3;start:number;duration:number;lift:number}[]=[];
   private lastMotionId=0;
   private pendingImpact?:{at:number;pieceType:string};
@@ -134,7 +142,7 @@ export class BoardRenderer {
   private environmentTarget?:THREE.WebGLRenderTarget;
   private reducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  constructor(private host: HTMLElement, lighting:BoardLighting, onSquare:(square:string)=>void, tableAppearance:TableAppearance, private onLand:(pieceType:string)=>void) {
+  constructor(private host: HTMLElement, lighting:BoardLighting, onSquare:(square:string)=>void, tableAppearance:TableAppearance, private onLand:(pieceType:string)=>void, environment:StudyEnvironment, private onCameraFrame:(progress:number)=>void, onBackend:(gpu:boolean)=>void) {
     this.onSquare=onSquare;
     let gpu:THREE.WebGLRenderer|undefined;
     try { gpu=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:"high-performance"}); } catch { /* Keep the same 3D geometry interactive without GPU support. */ }
@@ -149,6 +157,11 @@ export class BoardRenderer {
     this.renderer.domElement.setAttribute("class","chess-canvas");
     this.renderer.domElement.setAttribute("aria-hidden","true");
     host.appendChild(this.renderer.domElement);
+    if(gpu){
+      this.scene.background=new THREE.Color("#bddbdc");
+      this.backdrop=new SceneBackdrop(this.scene,environment,()=>{this.needsRender=true;});
+    }
+    onBackend(!!gpu);
     if(gpu){
       const pmrem=new THREE.PMREMGenerator(gpu);
       const room=new RoomEnvironment();
@@ -173,20 +186,8 @@ export class BoardRenderer {
       tile.position.set(file-3.5,.222,3.5-rank);tile.receiveShadow=true;tile.userData.square=square;
       this.scene.add(tile);this.squares.set(square,tile);
     }
-    const table=new THREE.Mesh(new RoundedBoxGeometry(11.7,.29,11.2,4,.15),new THREE.MeshStandardMaterial({color:tableAppearance.top,map:wood,roughness:tableAppearance.roughness}));
-    table.position.y=-.28;table.renderOrder=-30;table.receiveShadow=true;table.castShadow=true;this.scene.add(table);
-    const timber=new THREE.MeshStandardMaterial({color:tableAppearance.timber,map:wood,roughness:tableAppearance.roughness});
-    for(const x of [-4.65,4.65])for(const z of [-4.3,4.3]){
-      const leg=new THREE.Mesh(new RoundedBoxGeometry(.48,4.5,.48,2,.06),timber);
-      leg.position.set(x,-2.64,z);leg.rotation.z=-x*.01;leg.castShadow=true;leg.receiveShadow=true;leg.renderOrder=-40;this.scene.add(leg);
-    }
-    for(const z of [-4.3,4.3]){
-      const apron=new THREE.Mesh(new THREE.BoxGeometry(9.7,.65,.22),timber);apron.position.set(0,-.68,z);apron.castShadow=true;apron.renderOrder=-35;this.scene.add(apron);
-    }
-    for(const x of [-4.65,4.65]){
-      const apron=new THREE.Mesh(new THREE.BoxGeometry(.22,.65,8.8),timber);apron.position.set(x,-.68,0);apron.castShadow=true;apron.renderOrder=-35;this.scene.add(apron);
-    }
-    if(gpu){const ground=new THREE.Mesh(new THREE.PlaneGeometry(20,18),new THREE.ShadowMaterial({opacity:.2}));ground.rotation.x=-Math.PI/2;ground.position.y=-4.91;ground.receiveShadow=true;this.scene.add(ground);}
+    this.scene.add(coastalTable(tableAppearance,wood,this.software));
+    if(gpu){const ground=new THREE.Mesh(new THREE.PlaneGeometry(23,21),new THREE.ShadowMaterial({opacity:.26}));ground.rotation.x=-Math.PI/2;ground.position.y=-4.91;ground.receiveShadow=true;this.scene.add(ground);}
     // Lettering is part of the board, so it follows the board's 3D perspective.
     for(let i=0;i<8;i++) {
       this.label(String.fromCharCode(97+i),i-3.5,4.27,0);
@@ -228,17 +229,20 @@ export class BoardRenderer {
     surface.addEventListener("pointermove",pointerMove);
     surface.addEventListener("contextmenu",contextMenu);
     this.disposeEvents=()=>{surface.removeEventListener("pointerdown",pointerDown);surface.removeEventListener("pointerup",pointerUp);surface.removeEventListener("pointermove",pointerMove);surface.removeEventListener("contextmenu",contextMenu);};
-    let lastRender=0;
+    let lastRender=0,lastTime=performance.now();
     const render=(now:number)=>{
-      this.frame=requestAnimationFrame(render);if(document.hidden)return;
+      this.frame=requestAnimationFrame(render);const dt=Math.min((now-lastTime)/1000,.1);lastTime=now;if(document.hidden)return;
+      this.backdrop?.update(dt,this.scenePaused||this.reducedMotion,this.eventsActive);
       if(this.cameraMotion){
-        const motion=this.cameraMotion,t=Math.min((now-motion.start)/1900,1),eased=t*t*(3-2*t);
+        const motion=this.cameraMotion,t=Math.min((now-motion.start)/CAMERA_TRAVEL_MS,1),eased=t*t*t*(t*(t*6-15)+10);
         this.camera.position.lerpVectors(motion.from,motion.to,eased);this.controls.target.lerpVectors(motion.targetFrom,motion.targetTo,eased);
+        this.cameraOffset.lerpVectors(motion.offsetFrom,motion.offsetTo,eased);this.applyOffset();
+        this.cameraProgress=THREE.MathUtils.lerp(motion.progressFrom,motion.progressTo,eased);this.onCameraFrame(this.cameraProgress);
         this.needsRender=true;if(t===1){this.cameraMotion=undefined;this.controls.enabled=!this.distant;}
       }
       this.controls.update();
-      if(now-lastRender<(this.software?80:16))return;
-      if(!this.needsRender&&!this.animations.length&&!this.pendingImpact)return;
+      if(now-lastRender<(this.software?80:33))return;
+      if(!this.needsRender&&!this.animations.length&&!this.pendingImpact&&(!this.backdrop||this.scenePaused||this.reducedMotion))return;
       lastRender=now;this.needsRender=false;
       this.animations=this.animations.filter(animation=>{
         const progress=Math.min((now-animation.start)/animation.duration,1), eased=progress*progress*(3-2*progress);
@@ -246,7 +250,8 @@ export class BoardRenderer {
         animation.object.position.y+=Math.sin(progress*Math.PI)*animation.lift;
         return progress<1;
       });
-      this.renderer.render(this.scene,this.camera);
+      // SVG labels and triangles must project from the same, current camera.
+      this.camera.updateMatrixWorld();this.renderer.render(this.scene,this.camera);
       if(this.pendingImpact&&now>=this.pendingImpact.at){const impact=this.pendingImpact;this.pendingImpact=undefined;this.onLand(impact.pieceType);}
       if(this.software)this.renderer.domElement.style.backgroundColor="transparent";
     };this.frame=requestAnimationFrame(render);
@@ -279,33 +284,49 @@ export class BoardRenderer {
   private resize(){
     const width=this.host.clientWidth,height=this.host.clientHeight;
     if(!width||!height)return;
-    this.renderer.setSize(width,height);this.camera.aspect=width/height;this.camera.updateProjectionMatrix();this.resetCamera();
+    this.renderer.setSize(width,height);this.camera.aspect=width/height;this.camera.updateProjectionMatrix();
+    const arrival=this.pose(true),projector=this.camera.clone();
+    projector.position.copy(arrival.position);projector.lookAt(arrival.target);
+    projector.setViewOffset(width,height,arrival.offset.x*width,arrival.offset.y*height,width,height);projector.updateMatrixWorld();
+    this.backdrop?.calibrate(projector);this.resetCamera();
   }
 
-  resetCamera(animate=false){
+  private pose(distant:boolean){
     let distance=19.5;
-    const target=new THREE.Vector3(...BOARD_FRAME.center);if(this.distant)target.y-=1.65;
-    const direction=this.distant?new THREE.Vector3(5.7,9,17).normalize():this.topView?new THREE.Vector3(.01,1,.005):new THREE.Vector3(3.3,15,12.6).normalize();
-    if(this.flipped&&!this.distant){direction.x*=-1;direction.z*=-1;}
-    const probe=this.camera.clone();
-    const edge=this.distant?6:BOARD_FRAME.halfExtent,low=this.distant?-4.95:0;
-    for(let step=0;step<32;step++){
+    const target=new THREE.Vector3(...BOARD_FRAME.center);if(distant)target.y-=1.65;
+    const direction=distant?new THREE.Vector3(4.5,8.8,17).normalize():this.topView?new THREE.Vector3(.01,1,.005):new THREE.Vector3(.45,15,12.6).normalize();
+    if(this.flipped&&!distant){direction.x*=-1;direction.z*=-1;}
+    const probe=this.camera.clone();probe.clearViewOffset();
+    const edge=distant?6.1:BOARD_FRAME.halfExtent,low=distant?-4.95:0;
+    const verticalMargin=distant?.9:Math.max(.35,Math.min(.76,(this.host.clientHeight-295)/this.host.clientHeight));
+    for(let step=0;step<64;step++){
       probe.position.copy(direction.clone().multiplyScalar(distance).add(target));probe.lookAt(target);probe.updateMatrixWorld();
       let extent=0;
       for(const x of [-edge,edge])for(const y of [low,BOARD_FRAME.tallestPiece])for(const z of [-edge,edge]){
-        const point=new THREE.Vector3(x,y,z).project(probe);extent=Math.max(extent,Math.abs(point.x),Math.abs(point.y));
+        const point=new THREE.Vector3(x,y,z).project(probe);extent=Math.max(extent,Math.abs(point.x)/.86,Math.abs(point.y)/verticalMargin);
       }
-      if(extent<BOARD_FRAME.viewportMargin)break;distance*=1.045;
+      if(extent<1)break;distance*=1.045;
     }
-    const to=direction.multiplyScalar(distance).add(target);
-    if(animate&&!this.reducedMotion&&!this.software){
-      this.cameraMotion={from:this.camera.position.clone(),to,targetFrom:this.controls.target.clone(),targetTo:target,start:performance.now()};
+    if(distant)distance*=this.camera.aspect<1?1.45:1.8;
+    const offset=distant?new THREE.Vector2(this.camera.aspect<1?-.055:-.16,-.23):new THREE.Vector2(0,.015);
+    return {position:direction.multiplyScalar(distance).add(target),target,offset};
+  }
+  private applyOffset(){
+    const width=this.host.clientWidth,height=this.host.clientHeight;
+    this.camera.setViewOffset(width,height,this.cameraOffset.x*width,this.cameraOffset.y*height,width,height);
+  }
+  resetCamera(animate=false){
+    const {position:to,target,offset}=this.pose(this.distant);
+    if(animate&&!this.reducedMotion){
+      this.cameraMotion={from:this.camera.position.clone(),to,targetFrom:this.controls.target.clone(),targetTo:target,offsetFrom:this.cameraOffset.clone(),offsetTo:offset,progressFrom:this.cameraProgress,progressTo:this.distant?0:1,start:performance.now()};
       this.controls.enabled=false;
-    }else{this.cameraMotion=undefined;this.camera.position.copy(to);this.controls.target.copy(target);this.controls.enabled=!this.distant;}
+    }else{this.cameraMotion=undefined;this.camera.position.copy(to);this.controls.target.copy(target);this.cameraOffset.copy(offset);this.applyOffset();this.cameraProgress=this.distant?0:1;this.onCameraFrame(this.cameraProgress);this.controls.enabled=!this.distant;}
     this.controls.update();this.needsRender=true;
   }
+  setSceneState(paused:boolean,active:boolean){this.scenePaused=paused;this.eventsActive=active;this.needsRender=true;}
   setView(flipped:boolean,topView:boolean,distant=false){
     const animate=this.viewInitialized;this.flipped=flipped;this.topView=topView;this.distant=distant;
+    if(this.software)this.scene.traverse(object=>{if(object instanceof SVGObject)object.visible=!distant;});
     this.resetCamera(animate);this.viewInitialized=true;
   }
 
@@ -363,6 +384,7 @@ export class BoardRenderer {
 
   dispose(){
     cancelAnimationFrame(this.frame);this.observer.disconnect();this.disposeEvents();this.controls.dispose();
+    this.backdrop?.dispose();
     const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>(),textures=new Set<THREE.Texture>();
     const collect=(object:THREE.Object3D)=>{if(object instanceof THREE.Mesh){geometries.add(object.geometry);for(const m of Array.isArray(object.material)?object.material:[object.material])materials.add(m);}};
     this.scene.traverse(collect);for(const template of this.templates.values())template.traverse(collect);
